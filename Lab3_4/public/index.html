@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Messenger Auth</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e0e0e0;
+    }
+
+    .container { width: 100%; max-width: 480px; padding: 20px; }
+
+    h1 { text-align: center; margin-bottom: 8px; font-size: 1.8rem; color: #fff; }
+    .subtitle { text-align: center; color: #aaa; margin-bottom: 28px; font-size: 0.95rem; }
+
+    /* --- Tabs --- */
+    .tabs { display: flex; gap: 6px; margin-bottom: 24px; }
+    .tab-btn {
+      flex: 1; padding: 10px 6px;
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+      background: rgba(255,255,255,0.06); color: #aaa;
+      font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    .tab-btn:hover { background: rgba(255,255,255,0.1); }
+    .tab-btn.active { background: #7c4dff; border-color: #7c4dff; color: #fff; }
+
+    /* --- Progress --- */
+    .progress-bar {
+      display: flex; justify-content: space-between;
+      margin-bottom: 28px; position: relative;
+    }
+    .progress-bar::before {
+      content: ''; position: absolute; top: 50%; left: 0; right: 0;
+      height: 2px; background: #444; transform: translateY(-50%); z-index: 0;
+    }
+    .step-ind {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #333; border: 2px solid #555;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 600; font-size: 0.8rem;
+      position: relative; z-index: 1; transition: all 0.3s;
+    }
+    .step-ind.active { background: #7c4dff; border-color: #7c4dff; color: #fff; box-shadow: 0 0 14px rgba(124,77,255,0.4); }
+    .step-ind.done { background: #00c853; border-color: #00c853; color: #fff; }
+
+    /* --- Card --- */
+    .card {
+      background: rgba(255,255,255,0.06); backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.1); border-radius: 16px;
+      padding: 32px; display: none;
+    }
+    .card.active { display: block; }
+    .card h2 { font-size: 1.2rem; margin-bottom: 6px; color: #fff; }
+    .card p  { color: #aaa; font-size: 0.88rem; margin-bottom: 22px; line-height: 1.5; }
+
+    /* --- Inputs --- */
+    label { display: block; font-size: 0.83rem; color: #bbb; margin-bottom: 5px; font-weight: 500; }
+    input[type="text"], input[type="password"], input[type="tel"] {
+      width: 100%; padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+      background: rgba(255,255,255,0.08); color: #fff;
+      font-size: 1rem; margin-bottom: 14px; outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #7c4dff; }
+    input::placeholder { color: #666; }
+
+    /* --- Buttons --- */
+    button {
+      width: 100%; padding: 13px; border: none; border-radius: 10px;
+      background: linear-gradient(135deg, #7c4dff, #6200ea);
+      color: #fff; font-size: 1rem; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s, transform 0.1s; margin-bottom: 6px;
+    }
+    button:hover { opacity: 0.9; }
+    button:active { transform: scale(0.98); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); }
+
+    /* --- Alerts --- */
+    .error, .success {
+      padding: 10px 14px; border-radius: 8px;
+      font-size: 0.85rem; margin-bottom: 14px; display: none;
+    }
+    .error { background: rgba(255,82,82,0.15); border: 1px solid rgba(255,82,82,0.3); color: #ff5252; }
+    .success { background: rgba(0,200,83,0.12); border: 1px solid rgba(0,200,83,0.3); color: #00c853; }
+    .error.visible, .success.visible { display: block; }
+
+    /* --- QR / secret --- */
+    .qr-container { text-align: center; margin-bottom: 18px; }
+    .qr-container img { border-radius: 12px; background: #fff; padding: 12px; max-width: 200px; }
+    .secret-display { text-align: center; margin-bottom: 18px; }
+    .secret-display code {
+      display: inline-block; background: rgba(255,255,255,0.1);
+      padding: 8px 14px; border-radius: 8px; font-size: 0.88rem;
+      letter-spacing: 2px; color: #7c4dff; word-break: break-all;
+    }
+
+    /* --- Done card --- */
+    .done-card { text-align: center; }
+    .done-card .checkmark { font-size: 3.5rem; margin-bottom: 12px; }
+    .done-card h2 { margin-bottom: 10px; }
+    .account-info {
+      background: rgba(255,255,255,0.06); border-radius: 10px;
+      padding: 14px; text-align: left; margin-top: 14px;
+    }
+    .account-info div { padding: 5px 0; font-size: 0.88rem; }
+    .account-info span { color: #aaa; }
+
+    /* --- PIN inputs --- */
+    .pin-inputs { display: flex; gap: 10px; justify-content: center; margin-bottom: 18px; }
+    .pin-inputs input {
+      width: 54px; height: 62px; text-align: center;
+      font-size: 1.5rem; font-weight: 700; padding: 0; border-radius: 12px;
+    }
+
+    /* --- Dashboard --- */
+    .dashboard-box { text-align: center; }
+    .dashboard-box .user-icon { font-size: 3.5rem; margin-bottom: 10px; }
+    .dashboard-box .phone-display { font-size: 1.15rem; color: #fff; margin-bottom: 18px; }
+    .timer-bar { background: rgba(255,255,255,0.1); border-radius: 8px; height: 8px; margin-bottom: 6px; overflow: hidden; }
+    .timer-bar-fill { height: 100%; background: linear-gradient(90deg, #00c853, #7c4dff); border-radius: 8px; transition: width 1s linear; }
+    .timer-text { font-size: 0.83rem; color: #aaa; margin-bottom: 22px; }
+
+    /* --- Overlay --- */
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+      z-index: 100; align-items: center; justify-content: center;
+    }
+    .overlay.visible { display: flex; }
+    .overlay-card {
+      background: #1e1b3a; border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 16px; padding: 32px; max-width: 400px; width: 90%;
+    }
+    .overlay-card h2 { color: #fff; margin-bottom: 8px; }
+    .overlay-card p  { color: #aaa; font-size: 0.88rem; margin-bottom: 18px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Messenger</h1>
+    <p class="subtitle">Authentication System</p>
+
+    <div class="tabs" id="main-tabs">
+      <button class="tab-btn active" data-tab="register">Register</button>
+      <button class="tab-btn" data-tab="login">Login</button>
+      <button class="tab-btn" data-tab="recovery">Recover</button>
+    </div>
+
+    <div class="progress-bar" id="reg-progress">
+      <div class="step-ind active" id="reg-ind-1">1</div>
+      <div class="step-ind" id="reg-ind-2">2</div>
+      <div class="step-ind" id="reg-ind-3">3</div>
+      <div class="step-ind" id="reg-ind-4">4</div>
+    </div>
+
+    <div class="card active" id="reg-step1">
+      <h2>Phone Verification</h2>
+      <p>Enter your phone number and Telegram Chat ID. A verification code will be sent to your Telegram.</p>
+      <div class="error" id="reg-err1"></div>
+      <label>Phone Number</label>
+      <input type="tel" id="reg-phone" placeholder="+380XXXXXXXXX">
+      <label>Telegram Chat ID</label>
+      <input type="text" id="reg-chatid" placeholder="e.g. 123456789">
+      <button id="btn-reg-send">Send Verification Code</button>
+    </div>
+
+    <div class="card" id="reg-step2">
+      <h2>Enter Code</h2>
+      <p>Enter the 6-digit code sent to your Telegram.</p>
+      <div class="error" id="reg-err2"></div>
+      <label>Verification Code</label>
+      <input type="text" id="reg-otp" placeholder="000000" maxlength="6">
+      <button id="btn-reg-verify">Verify Code</button>
+    </div>
+
+    <div class="card" id="reg-step3">
+      <h2>Set Password</h2>
+      <p>Choose a strong password (at least 8 characters).</p>
+      <div class="error" id="reg-err3"></div>
+      <label>Password</label>
+      <input type="password" id="reg-pass" placeholder="Minimum 8 characters">
+      <label>Confirm Password</label>
+      <input type="password" id="reg-pass-confirm" placeholder="Repeat password">
+      <button id="btn-reg-setpass">Set Password</button>
+    </div>
+
+    <div class="card" id="reg-step4">
+      <h2>Setup Two-Factor Auth</h2>
+      <p>Scan the QR code with Google Authenticator, then enter the 6-digit token.</p>
+      <div class="error" id="reg-err4"></div>
+      <div class="qr-container" id="reg-qr"></div>
+      <div class="secret-display"><label>Manual entry key:</label><code id="reg-secret"></code></div>
+      <label>Authenticator Code</label>
+      <input type="text" id="reg-totp" placeholder="000000" maxlength="6">
+      <button id="btn-reg-2fa">Complete Registration</button>
+    </div>
+
+    <div class="card done-card" id="reg-done">
+      <div class="checkmark">&#10003;</div>
+      <h2>Account Created!</h2>
+      <p>Your account has been registered. Switch to the Login tab to sign in.</p>
+      <div class="account-info" id="reg-account-info"></div>
+      <br>
+      <button id="btn-goto-login">Go to Login</button>
+    </div>
+
+    <div class="card" id="login-step1">
+      <h2>Sign In</h2>
+      <p>Enter your phone number and password.</p>
+      <div class="error" id="login-err1"></div>
+      <label>Phone Number</label>
+      <input type="tel" id="login-phone" placeholder="+380XXXXXXXXX">
+      <label>Password</label>
+      <input type="password" id="login-pass" placeholder="Your password">
+      <button id="btn-login">Sign In</button>
+    </div>
+
+    <div class="card" id="login-step2">
+      <h2>Two-Factor Authentication</h2>
+      <p>Open Google Authenticator and enter the 6-digit code.</p>
+      <div class="error" id="login-err2"></div>
+      <label>Authenticator Code</label>
+      <input type="text" id="login-totp" placeholder="000000" maxlength="6">
+      <button id="btn-login-2fa">Verify</button>
+    </div>
+
+    <div class="card" id="login-create-pin">
+      <h2>Create PIN Code</h2>
+      <p>Set a 4-digit PIN. You will be asked to re-enter it periodically.</p>
+      <div class="error" id="login-err-cpin"></div>
+      <div class="pin-inputs" id="pin-create">
+        <input type="text" maxlength="1" data-idx="0">
+        <input type="text" maxlength="1" data-idx="1">
+        <input type="text" maxlength="1" data-idx="2">
+        <input type="text" maxlength="1" data-idx="3">
+      </div>
+      <button id="btn-login-cpin">Set PIN</button>
+    </div>
+
+    <div class="card" id="login-enter-pin">
+      <h2>Enter PIN</h2>
+      <p>Enter your 4-digit PIN to complete login.</p>
+      <div class="error" id="login-err-epin"></div>
+      <div class="pin-inputs" id="pin-enter">
+        <input type="text" maxlength="1" data-idx="0">
+        <input type="text" maxlength="1" data-idx="1">
+        <input type="text" maxlength="1" data-idx="2">
+        <input type="text" maxlength="1" data-idx="3">
+      </div>
+      <button id="btn-login-epin">Confirm</button>
+    </div>
+
+    <div class="card dashboard-box" id="dashboard">
+      <div class="user-icon">&#128100;</div>
+      <div class="phone-display" id="dash-phone"></div>
+      <div class="timer-bar"><div class="timer-bar-fill" id="timer-fill"></div></div>
+      <div class="timer-text" id="timer-text">PIN re-entry in --:--</div>
+      <div class="success visible" style="display:block">You are logged in. Session is active.</div>
+      <button class="secondary" id="btn-logout">Logout</button>
+    </div>
+
+    <div class="card" id="rec-step1">
+      <h2>Account Recovery</h2>
+      <p>Enter your phone number and Telegram Chat ID to receive a recovery code.</p>
+      <div class="error" id="rec-err1"></div>
+      <label>Phone Number</label>
+      <input type="tel" id="rec-phone" placeholder="+380XXXXXXXXX">
+      <label>Telegram Chat ID</label>
+      <input type="text" id="rec-chatid" placeholder="e.g. 123456789">
+      <button id="btn-rec-send">Send Recovery Code</button>
+    </div>
+
+    <div class="card" id="rec-step2">
+      <h2>Enter Recovery Code</h2>
+      <p>Enter the 6-digit code sent to your Telegram.</p>
+      <div class="error" id="rec-err2"></div>
+      <label>Recovery Code</label>
+      <input type="text" id="rec-otp" placeholder="000000" maxlength="6">
+      <button id="btn-rec-verify">Verify Code</button>
+    </div>
+
+    <div class="card" id="rec-step3">
+      <h2>Confirm Your PIN</h2>
+      <p>Enter your 4-digit PIN to confirm your identity.</p>
+      <div class="error" id="rec-err3"></div>
+      <div class="pin-inputs" id="pin-rec">
+        <input type="text" maxlength="1" data-idx="0">
+        <input type="text" maxlength="1" data-idx="1">
+        <input type="text" maxlength="1" data-idx="2">
+        <input type="text" maxlength="1" data-idx="3">
+      </div>
+      <button id="btn-rec-pin">Confirm PIN</button>
+    </div>
+
+    <div class="card" id="rec-step4">
+      <h2>Set New Password</h2>
+      <p>Choose a new password (at least 8 characters).</p>
+      <div class="error" id="rec-err4"></div>
+      <div class="success" id="rec-suc4"></div>
+      <label>New Password</label>
+      <input type="password" id="rec-pass" placeholder="Minimum 8 characters">
+      <label>Confirm Password</label>
+      <input type="password" id="rec-pass-confirm" placeholder="Repeat password">
+      <button id="btn-rec-setpass">Update Password</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="pin-overlay">
+    <div class="overlay-card">
+      <h2>Session Locked</h2>
+      <p>Time is up. Re-enter your PIN to continue.</p>
+      <div class="error" id="reenter-err"></div>
+      <div class="pin-inputs" id="pin-reenter">
+        <input type="text" maxlength="1" data-idx="0">
+        <input type="text" maxlength="1" data-idx="1">
+        <input type="text" maxlength="1" data-idx="2">
+        <input type="text" maxlength="1" data-idx="3">
+      </div>
+      <button id="btn-reenter">Unlock</button>
+    </div>
+  </div>
+
+  <script>
+    const regState = { phone: '' };
+    let tempToken = '';
+    let sessionId = localStorage.getItem('sessionId') || '';
+    let recoveryPhone = '';
+    let pinReentryMs = 60000;
+    let timerInterval = null;
+    let sessionCheckInterval = null;
+
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    function showErr(id, msg)  { const e = $(`#${id}`); e.textContent = msg; e.classList.add('visible'); }
+    function clearErr(id)      { const e = $(`#${id}`); if (e) { e.textContent = ''; e.classList.remove('visible'); } }
+    function showCard(id)      { $$('.card').forEach(c => c.classList.remove('active')); $(`#${id}`).classList.add('active'); }
+    function showTabs(v)       { $('#main-tabs').style.display = v ? 'flex' : 'none'; }
+    function showRegProgress(v){ $('#reg-progress').style.display = v ? 'flex' : 'none'; }
+
+    async function api(url, body, token) {
+      const h = { 'Content-Type': 'application/json' };
+      if (token) h['Authorization'] = `Bearer ${token}`;
+      const r = await fetch(url, { method: body ? 'POST' : 'GET', headers: h, body: body ? JSON.stringify(body) : undefined });
+      return r.json();
+    }
+
+    function setLoading(btn, v) {
+      btn.disabled = v;
+      btn.dataset.o = btn.dataset.o || btn.textContent;
+      btn.textContent = v ? 'Please wait...' : btn.dataset.o;
+    }
+
+    function pinVal(cid) { return Array.from($$(`#${cid} input`)).map(i => i.value).join(''); }
+    function pinClear(cid) { $$(`#${cid} input`).forEach(i => { i.value = ''; }); const f = $(`#${cid} input[data-idx="0"]`); if (f) f.focus(); }
+    function pinSetup(cid) {
+      const inputs = $$(`#${cid} input`);
+      inputs.forEach((inp, i) => {
+        inp.addEventListener('input', () => { inp.value = inp.value.replace(/\D/g, ''); if (inp.value && i < inputs.length - 1) inputs[i+1].focus(); });
+        inp.addEventListener('keydown', e => { if (e.key === 'Backspace' && !inp.value && i > 0) inputs[i-1].focus(); });
+      });
+    }
+
+    function regStep(n) {
+      showCard(`reg-step${n}`);
+      for (let i = 1; i <= 4; i++) {
+        const ind = $(`#reg-ind-${i}`);
+        ind.classList.remove('active', 'done');
+        if (i < n) ind.classList.add('done');
+        else if (i === n) ind.classList.add('active');
+      }
+    }
+
+    $$('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        $$('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const t = btn.dataset.tab;
+        showRegProgress(t === 'register');
+        if (t === 'register') { regStep(1); }
+        else if (t === 'login') { showRegProgress(false); showCard('login-step1'); }
+        else { showRegProgress(false); showCard('rec-step1'); }
+      });
+    });
+
+    //  REGISTRATION
+
+    $('#btn-reg-send').addEventListener('click', async () => {
+      clearErr('reg-err1');
+      const phone = $('#reg-phone').value.trim();
+      const chatId = $('#reg-chatid').value.trim();
+      if (!phone) return showErr('reg-err1', 'Enter phone number.');
+      if (!chatId) return showErr('reg-err1', 'Enter Telegram Chat ID.');
+      const b = $('#btn-reg-send'); setLoading(b, true);
+      const d = await api('/api/register/send-code', { phone, telegramChatId: chatId });
+      setLoading(b, false);
+      if (d.error) return showErr('reg-err1', d.error);
+      regState.phone = phone;
+      regStep(2);
+    });
+
+    $('#btn-reg-verify').addEventListener('click', async () => {
+      clearErr('reg-err2');
+      const code = $('#reg-otp').value.trim();
+      if (!code || code.length !== 6) return showErr('reg-err2', 'Enter the 6-digit code.');
+      const b = $('#btn-reg-verify'); setLoading(b, true);
+      const d = await api('/api/register/verify-code', { phone: regState.phone, code });
+      setLoading(b, false);
+      if (d.error) return showErr('reg-err2', d.error);
+      regStep(3);
+    });
+
+    $('#btn-reg-setpass').addEventListener('click', async () => {
+      clearErr('reg-err3');
+      const pw = $('#reg-pass').value, pw2 = $('#reg-pass-confirm').value;
+      if (!pw || pw.length < 8) return showErr('reg-err3', 'Password must be at least 8 characters.');
+      if (pw !== pw2) return showErr('reg-err3', 'Passwords do not match.');
+      const b = $('#btn-reg-setpass'); setLoading(b, true);
+      const d = await api('/api/register/set-password', { phone: regState.phone, password: pw });
+      setLoading(b, false);
+      if (d.error) return showErr('reg-err3', d.error);
+      const img = document.createElement('img'); img.src = d.qrCode; img.alt = 'QR';
+      $('#reg-qr').innerHTML = ''; $('#reg-qr').appendChild(img);
+      $('#reg-secret').textContent = d.totpSecret;
+      regStep(4);
+    });
+
+    $('#btn-reg-2fa').addEventListener('click', async () => {
+      clearErr('reg-err4');
+      const tok = $('#reg-totp').value.trim();
+      if (!tok || tok.length !== 6) return showErr('reg-err4', 'Enter the 6-digit authenticator code.');
+      const b = $('#btn-reg-2fa'); setLoading(b, true);
+      const d = await api('/api/register/verify-2fa', { phone: regState.phone, token: tok });
+      setLoading(b, false);
+      if (d.error) return showErr('reg-err4', d.error);
+      $('#reg-account-info').innerHTML = `
+        <div><span>Account ID:</span> ${d.account.id}</div>
+        <div><span>Phone:</span> ${d.account.phone}</div>
+        <div><span>Created:</span> ${new Date(d.account.createdAt).toLocaleString()}</div>`;
+      showRegProgress(false);
+      showCard('reg-done');
+    });
+
+    $('#btn-goto-login').addEventListener('click', () => {
+      $$('.tab-btn').forEach(b => b.classList.remove('active'));
+      $$('.tab-btn')[1].classList.add('active');
+      showRegProgress(false);
+      showCard('login-step1');
+    });
+
+    //  LOGIN
+
+    $('#btn-login').addEventListener('click', async () => {
+      clearErr('login-err1');
+      const phone = $('#login-phone').value.trim(), pw = $('#login-pass').value;
+      if (!phone || !pw) return showErr('login-err1', 'Enter phone and password.');
+      const b = $('#btn-login'); setLoading(b, true);
+      const d = await api('/api/auth/login', { phone, password: pw });
+      setLoading(b, false);
+      if (d.error) return showErr('login-err1', d.error);
+      tempToken = d.tempToken;
+      showTabs(false); showRegProgress(false);
+      showCard('login-step2');
+    });
+
+    $('#btn-login-2fa').addEventListener('click', async () => {
+      clearErr('login-err2');
+      const tok = $('#login-totp').value.trim();
+      if (!tok || tok.length !== 6) return showErr('login-err2', 'Enter the 6-digit code.');
+      const b = $('#btn-login-2fa'); setLoading(b, true);
+      const d = await api('/api/auth/verify-2fa', { tempToken, token: tok });
+      setLoading(b, false);
+      if (d.error) return showErr('login-err2', d.error);
+      if (d.hasPin) { showCard('login-enter-pin'); pinClear('pin-enter'); }
+      else          { showCard('login-create-pin'); pinClear('pin-create'); }
+    });
+
+    $('#btn-login-cpin').addEventListener('click', async () => {
+      clearErr('login-err-cpin');
+      const pin = pinVal('pin-create');
+      if (pin.length !== 4) return showErr('login-err-cpin', 'Enter all 4 digits.');
+      const b = $('#btn-login-cpin'); setLoading(b, true);
+      const d = await api('/api/auth/set-pin', { tempToken, pin });
+      setLoading(b, false);
+      if (d.error) return showErr('login-err-cpin', d.error);
+      loginOk(d.sessionId, d.pinReentryMinutes);
+    });
+
+    $('#btn-login-epin').addEventListener('click', async () => {
+      clearErr('login-err-epin');
+      const pin = pinVal('pin-enter');
+      if (pin.length !== 4) return showErr('login-err-epin', 'Enter all 4 digits.');
+      const b = $('#btn-login-epin'); setLoading(b, true);
+      const d = await api('/api/auth/verify-pin', { tempToken, pin });
+      setLoading(b, false);
+      if (d.error) return showErr('login-err-epin', d.error);
+      loginOk(d.sessionId, d.pinReentryMinutes);
+    });
+
+    function loginOk(sid, reMin) {
+      sessionId = sid;
+      localStorage.setItem('sessionId', sid);
+      pinReentryMs = reMin * 60 * 1000;
+      showTabs(false); showRegProgress(false);
+      showDashboard();
+    }
+
+    async function showDashboard() {
+      const d = await api('/api/auth/session', null, sessionId);
+      if (d.error) { sessionId = ''; localStorage.removeItem('sessionId'); showTabs(true); showCard('login-step1'); return; }
+      $('#dash-phone').textContent = d.phone;
+      pinReentryMs = d.pinReentryMinutes * 60 * 1000;
+      showCard('dashboard');
+      startTimer(d.nextPinReentryIn);
+      startSessionCheck();
+    }
+
+    function startTimer(rem) {
+      clearInterval(timerInterval);
+      let r = rem;
+      function tick() {
+        const pct = Math.max(0, (r / pinReentryMs) * 100);
+        $('#timer-fill').style.width = pct + '%';
+        const s = Math.max(0, Math.ceil(r / 1000)), m = Math.floor(s / 60), ss = s % 60;
+        $('#timer-text').textContent = `PIN re-entry in ${m}:${ss.toString().padStart(2, '0')}`;
+        r -= 1000;
+        if (r < 0) { clearInterval(timerInterval); showPinOverlay(); }
+      }
+      tick();
+      timerInterval = setInterval(tick, 1000);
+    }
+
+    function startSessionCheck() {
+      clearInterval(sessionCheckInterval);
+      sessionCheckInterval = setInterval(async () => {
+        if (!sessionId) return;
+        const d = await api('/api/auth/session', null, sessionId);
+        if (d.error) { sessionId = ''; localStorage.removeItem('sessionId'); showTabs(true); showCard('login-step1'); return; }
+        if (d.pinExpired) showPinOverlay();
+      }, 5000);
+    }
+
+    function showPinOverlay() {
+      clearInterval(timerInterval);
+      pinClear('pin-reenter'); clearErr('reenter-err');
+      $('#pin-overlay').classList.add('visible');
+    }
+
+    $('#btn-reenter').addEventListener('click', async () => {
+      clearErr('reenter-err');
+      const pin = pinVal('pin-reenter');
+      if (pin.length !== 4) return showErr('reenter-err', 'Enter all 4 digits.');
+      const b = $('#btn-reenter'); setLoading(b, true);
+      const d = await api('/api/auth/reenter-pin', { pin }, sessionId);
+      setLoading(b, false);
+      if (d.error) return showErr('reenter-err', d.error);
+      $('#pin-overlay').classList.remove('visible');
+      startTimer(d.nextPinReentryIn);
+    });
+
+    $('#btn-logout').addEventListener('click', async () => {
+      await api('/api/auth/logout', {}, sessionId);
+      sessionId = ''; localStorage.removeItem('sessionId');
+      clearInterval(timerInterval); clearInterval(sessionCheckInterval);
+      showTabs(true); showRegProgress(false);
+      $$('.tab-btn').forEach(b => b.classList.remove('active'));
+      $$('.tab-btn')[1].classList.add('active');
+      showCard('login-step1');
+    });
+
+    //  RECOVERY
+
+    $('#btn-rec-send').addEventListener('click', async () => {
+      clearErr('rec-err1');
+      const phone = $('#rec-phone').value.trim(), chatId = $('#rec-chatid').value.trim();
+      if (!phone || !chatId) return showErr('rec-err1', 'Enter phone and Telegram Chat ID.');
+      const b = $('#btn-rec-send'); setLoading(b, true);
+      const d = await api('/api/recovery/send-code', { phone, telegramChatId: chatId });
+      setLoading(b, false);
+      if (d.error) return showErr('rec-err1', d.error);
+      recoveryPhone = phone;
+      showTabs(false); showRegProgress(false);
+      showCard('rec-step2');
+    });
+
+    $('#btn-rec-verify').addEventListener('click', async () => {
+      clearErr('rec-err2');
+      const code = $('#rec-otp').value.trim();
+      if (!code || code.length !== 6) return showErr('rec-err2', 'Enter the 6-digit code.');
+      const b = $('#btn-rec-verify'); setLoading(b, true);
+      const d = await api('/api/recovery/verify-code', { phone: recoveryPhone, code });
+      setLoading(b, false);
+      if (d.error) return showErr('rec-err2', d.error);
+      if (d.hasPin) { showCard('rec-step3'); pinClear('pin-rec'); }
+      else showCard('rec-step4');
+    });
+
+    $('#btn-rec-pin').addEventListener('click', async () => {
+      clearErr('rec-err3');
+      const pin = pinVal('pin-rec');
+      if (pin.length !== 4) return showErr('rec-err3', 'Enter all 4 digits.');
+      const b = $('#btn-rec-pin'); setLoading(b, true);
+      const d = await api('/api/recovery/confirm-pin', { phone: recoveryPhone, pin });
+      setLoading(b, false);
+      if (d.error) return showErr('rec-err3', d.error);
+      showCard('rec-step4');
+    });
+
+    $('#btn-rec-setpass').addEventListener('click', async () => {
+      clearErr('rec-err4');
+      const pw = $('#rec-pass').value, pw2 = $('#rec-pass-confirm').value;
+      if (!pw || pw.length < 8) return showErr('rec-err4', 'Password must be at least 8 characters.');
+      if (pw !== pw2) return showErr('rec-err4', 'Passwords do not match.');
+      const b = $('#btn-rec-setpass'); setLoading(b, true);
+      const d = await api('/api/recovery/set-password', { phone: recoveryPhone, password: pw });
+      setLoading(b, false);
+      if (d.error) return showErr('rec-err4', d.error);
+      const el = $('#rec-suc4'); el.textContent = 'Password updated! Redirecting to login...'; el.classList.add('visible');
+      b.disabled = true;
+      setTimeout(() => {
+        showTabs(true); showRegProgress(false);
+        $$('.tab-btn').forEach(b => b.classList.remove('active'));
+        $$('.tab-btn')[1].classList.add('active');
+        showCard('login-step1');
+      }, 2000);
+    });
+
+    ['pin-create', 'pin-enter', 'pin-rec', 'pin-reenter'].forEach(pinSetup);
+
+    (async function init() {
+      showRegProgress(true);
+      if (sessionId) { showTabs(false); showRegProgress(false); await showDashboard(); }
+    })();
+  </script>
+</body>
+</html>

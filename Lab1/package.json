@@ -1,0 +1,15 @@
+{
+  "name": "vulnerable-app-fixed",
+  "version": "2.0.0",
+  "description": "Fixed app — all vulnerabilities resolved",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.22.0",
+    "serialize-javascript": "^7.0.5",
+    "ejs": "^3.1.10",
+    "jsonwebtoken": "^9.0.2"
+  }
+}
